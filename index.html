@@ -123,27 +123,12 @@ select.printer-select, select.cur-select{
   .rep-note{font-size:.72rem;color:#666;margin-top:22px;line-height:1.5}
 }
 ::selection{background:var(--accent);color:#fff}
-
-.donate-fab{
-  position:fixed; right:18px; bottom:calc(18px + env(safe-area-inset-bottom,0px));
-  background:var(--accent); color:#fff; border:0; border-radius:30px;
-  padding:12px 18px; font-size:.85rem; font-weight:600; cursor:pointer;
-  box-shadow:0 6px 18px rgba(0,0,0,.25); display:none; align-items:center; gap:8px; z-index:50;
-}
-.donate-fab.show{display:inline-flex}
-.donate-fab:active{transform:scale(.97)}
-@media print{.donate-fab{display:none !important}}
-
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
-.modal-bg.show{display:flex}
-.modal-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;max-width:320px;width:100%;text-align:center}
-.modal-box img{width:100%;border-radius:8px;margin-bottom:14px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="eyebrow"><div class="spool"></div><span style="font-family:monospace;font-size:.75rem;color:var(--ink-dim)">v1.1</span></div>
+    <div class="eyebrow"><div class="spool"></div><span style="font-family:monospace;font-size:.75rem;color:var(--ink-dim)">v1.2</span></div>
     <h1>Calculadora de impresión 3D</h1>
     <p>Calcula cuánto cobrar por tus piezas impresas y genera una cotización en PDF con los datos de tu emprendimiento.</p>
   </header>
@@ -288,22 +273,6 @@ select.printer-select, select.cur-select{
       </div>
 
       <div class="card">
-        <h2>Apoya este proyecto <small>— opcional</small></h2>
-        <div class="field-row single">
-          <div class="field">
-            <label>Link de donación (PayPal.me, Buy Me a Coffee, Mercado Pago, etc.)</label>
-            <div class="inp"><input type="text" id="donateLink" placeholder="https://paypal.me/tuusuario"></div>
-          </div>
-        </div>
-        <div class="logo-row">
-          <div class="logo-preview" id="qrPreview">QR</div>
-          <label class="file-btn">Subir QR<input type="file" id="qrInput" accept="image/*"></label>
-          <button type="button" class="btn ghost" id="removeQr" style="flex:none;padding:9px 12px">Quitar</button>
-        </div>
-        <span class="hint">Si agregas un link o un QR, aparecerá un botón flotante para que quien use la calculadora pueda invitarte un café.</span>
-      </div>
-
-      <div class="card">
         <h2>Datos del documento <small>— opcional, para cotizaciones</small></h2>
         <div class="field-row">
           <div class="field">
@@ -359,15 +328,6 @@ select.printer-select, select.cur-select{
   <div class="rep-note">Documento generado con la calculadora de impresión 3D. Los valores de consumo eléctrico y desgaste son estimaciones, y este documento corresponde a una cotización/recibo, no a una factura o boleta electrónica oficial.</div>
 </div>
 
-<button class="donate-fab" id="donateFab">☕ Invítame un café</button>
-<div class="modal-bg" id="qrModal">
-  <div class="modal-box">
-    <img id="qrModalImg">
-    <div style="font-size:.85rem;color:var(--ink-dim);margin-bottom:14px">Escanea el código para hacer tu aporte 🙌</div>
-    <button class="btn ghost" id="closeQrModal" style="width:100%">Cerrar</button>
-  </div>
-</div>
-
 <script>
 const PRINTERS = [
   {name:"Personalizada", normal:150, max:300},
@@ -404,17 +364,6 @@ const fmt = n => Math.round(n).toLocaleString('es-CL');
 let currentMode = 'normal';
 let currentSymbol = '$';
 let logoData = null;
-let qrData = null;
-
-function updateDonateFab(){
-  const link = txt('donateLink');
-  const fab = $('donateFab');
-  fab.classList.toggle('show', !!(link || qrData));
-}
-
-function showQrPreview(){
-  $('qrPreview').innerHTML = qrData ? `<img src="${qrData}">` : 'QR';
-}
 
 function populatePrinters(){
   const sel = $('printerSelect');
@@ -532,7 +481,7 @@ function calc(){
 
 function saveState(){
   try{
-    const ids = ['watts','filamentCost','weight','hours','minutes','kwhCost','wearRate','units','margin','laborRate','extraCost','taxRate','bizName','bizContact','clientName','docNumber','pieceDesc','donateLink'];
+    const ids = ['watts','filamentCost','weight','hours','minutes','kwhCost','wearRate','units','margin','laborRate','extraCost','taxRate','bizName','bizContact','clientName','docNumber','pieceDesc'];
     const state = {};
     ids.forEach(id => state[id] = $(id).value);
     state.laborToggle = $('laborToggle').checked;
@@ -543,7 +492,6 @@ function saveState(){
     state.currentSymbol = currentSymbol;
     state.printerIndex = $('printerSelect').value;
     if(logoData) state.logoData = logoData;
-    if(qrData) state.qrData = qrData;
     localStorage.setItem('calc3d_state', JSON.stringify(state));
   }catch(e){}
 }
@@ -570,8 +518,6 @@ function loadState(){
     $('modeMax').classList.toggle('active', currentMode==='max');
     document.querySelectorAll('#currencySelect option').forEach(o=>{ if(o.value === currentSymbol) o.selected = true; });
     if(state.logoData){ logoData = state.logoData; showLogoPreview(); }
-    if(state.qrData){ qrData = state.qrData; showQrPreview(); }
-    updateDonateFab();
   }catch(e){}
 }
 
@@ -598,28 +544,6 @@ function initEvents(){
     reader.readAsDataURL(file);
   });
   $('removeLogo').addEventListener('click', ()=>{ logoData = null; $('logoInput').value=''; showLogoPreview(); calc(); });
-
-  $('qrInput').addEventListener('change', e=>{
-    const file = e.target.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = ()=>{ qrData = reader.result; showQrPreview(); updateDonateFab(); saveState(); };
-    reader.readAsDataURL(file);
-  });
-  $('removeQr').addEventListener('click', ()=>{ qrData = null; $('qrInput').value=''; showQrPreview(); updateDonateFab(); saveState(); });
-  $('donateLink').addEventListener('input', updateDonateFab);
-
-  $('donateFab').addEventListener('click', ()=>{
-    const link = txt('donateLink');
-    if(link){
-      window.open(link.startsWith('http') ? link : 'https://' + link, '_blank');
-    } else if(qrData){
-      $('qrModalImg').src = qrData;
-      $('qrModal').classList.add('show');
-    }
-  });
-  $('closeQrModal').addEventListener('click', ()=> $('qrModal').classList.remove('show'));
-  $('qrModal').addEventListener('click', e=>{ if(e.target.id === 'qrModal') $('qrModal').classList.remove('show'); });
 
   $('btnPdf').addEventListener('click', ()=> window.print());
 
