@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calculadora de Impresión 3D</title>
+<style>
+:root{
+  --bg:#15171a; --panel:#1c1f24; --panel2:#22262c; --line:#2c3138;
+  --ink:#eef1f4; --ink-dim:#9aa3ad; --accent:#ff5a1f; --accent-dim:#c74516;
+  --good:#3ddc84;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  box-sizing:border-box;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f2f1ee; --panel:#ffffff; --panel2:#f7f6f3; --line:#dcdad4;
+    --ink:#191a19; --ink-dim:#63665f; --accent:#e04b16; --accent-dim:#c33f10; --good:#1f8a4c;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f2f1ee; --panel:#ffffff; --panel2:#f7f6f3; --line:#dcdad4;
+  --ink:#191a19; --ink-dim:#63665f; --accent:#e04b16; --accent-dim:#c33f10; --good:#1f8a4c;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100%}
+.wrap{max-width:1040px;margin:0 auto;padding:28px 18px 60px}
+
+header.top{padding:6px 0 22px;border-bottom:1px solid var(--line);margin-bottom:26px}
+header.top .eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.spool{width:22px;height:22px;border-radius:50%;border:5px solid var(--accent);background:var(--panel)}
+h1{font-size:1.7rem;margin:0 0 6px;letter-spacing:-0.01em;font-weight:700}
+header.top p{margin:0;color:var(--ink-dim);font-size:.95rem;max-width:56ch;line-height:1.5}
+
+.grid{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px}
+.card + .card{margin-top:16px}
+.card h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-dim);margin:0 0 16px;font-weight:600}
+.card h2 small{text-transform:none;letter-spacing:0;opacity:.8;font-weight:400}
+
+select.printer-select, select.cur-select{
+  width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+  border-radius:8px;padding:10px 12px;font-size:.92rem;margin-bottom:4px;
+}
+
+.mode-row{display:flex;gap:8px;margin:12px 0 4px}
+.mode-btn{flex:1;border:1px solid var(--line);background:var(--panel2);color:var(--ink-dim);
+  padding:9px 10px;border-radius:8px;font-size:.82rem;cursor:pointer;font-weight:600;transition:.15s}
+.mode-btn.active{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb, var(--accent) 10%, var(--panel2))}
+
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.field-row.single{grid-template-columns:1fr}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:.78rem;color:var(--ink-dim)}
+.field .hint{font-size:.72rem;color:var(--ink-dim);opacity:.75}
+.inp{position:relative;display:flex;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:0 12px;transition:border-color .15s}
+.inp:focus-within{border-color:var(--accent)}
+.inp span{color:var(--ink-dim);font-size:.85rem;margin-right:6px;white-space:nowrap}
+.inp input, .inp input[type=text]{background:transparent;border:0;outline:0;color:var(--ink);font-size:.95rem;padding:10px 0;width:100%;font-family:inherit}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px dashed var(--line)}
+.toggle-row:first-of-type{border-top:none}
+.toggle-row span{font-size:.85rem}
+.switch{position:relative;width:40px;height:22px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;inset:0;background:var(--line);border-radius:20px;cursor:pointer;transition:.15s}
+.slider:before{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:var(--panel);border-radius:50%;transition:.15s}
+.switch input:checked + .slider{background:var(--accent)}
+.switch input:checked + .slider:before{transform:translateX(18px)}
+
+.extra-fields{display:none;padding-top:10px}
+.extra-fields.show{display:block}
+
+.logo-row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.logo-preview{width:52px;height:52px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none;color:var(--ink-dim);font-size:.7rem;text-align:center}
+.logo-preview img{width:100%;height:100%;object-fit:contain}
+.file-btn{border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:9px 12px;border-radius:8px;font-size:.82rem;cursor:pointer}
+.file-btn input{display:none}
+
+.results{position:sticky;top:18px}
+.total-block{text-align:left;padding:22px 20px;border:1px solid var(--line);border-radius:10px;background:linear-gradient(180deg,var(--panel2),var(--panel))}
+.total-block .label{font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-dim)}
+.total-block .value{font-size:2.3rem;font-weight:700;margin:4px 0 2px;font-family:'JetBrains Mono','SF Mono',Consolas,monospace}
+.total-block .per-unit{font-size:.82rem;color:var(--ink-dim)}
+
+.breakdown{margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+.brow{display:flex;justify-content:space-between;font-size:.85rem;padding:6px 0;color:var(--ink-dim)}
+.brow b{color:var(--ink);font-weight:500;font-family:'JetBrains Mono','SF Mono',Consolas,monospace}
+.brow.profit{color:var(--good)}
+.brow.profit b{color:var(--good)}
+.brow.sub{border-top:1px solid var(--line);margin-top:6px;padding-top:10px;font-weight:600}
+.brow.sub b{font-size:.95rem}
+
+.btnrow{display:flex;gap:10px;margin-top:16px}
+.btn{flex:1;border:0;border-radius:8px;padding:12px 14px;font-size:.88rem;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .15s, transform .1s}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-dim)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+
+.footnote{font-size:.72rem;color:var(--ink-dim);margin-top:14px;line-height:1.5}
+
+#report{display:none}
+@media print{
+  body *{visibility:hidden}
+  #report, #report *{visibility:visible}
+  #report{display:block;position:absolute;top:0;left:0;width:100%;padding:24px;color:#111;background:#fff}
+  .rep-head{display:flex;align-items:center;gap:14px;margin-bottom:18px;border-bottom:2px solid #111;padding-bottom:14px}
+  .rep-head img{width:56px;height:56px;object-fit:contain}
+  .rep-biz-name{font-size:1.2rem;font-weight:700}
+  .rep-biz-contact{font-size:.8rem;color:#444}
+  .rep-title{font-size:1.15rem;font-weight:700;margin:14px 0 2px}
+  .rep-meta{font-size:.82rem;color:#555;margin-bottom:16px;display:flex;justify-content:space-between}
+  .rep-client{font-size:.88rem;margin-bottom:14px}
+  .rep-table{width:100%;border-collapse:collapse;margin-bottom:14px}
+  .rep-table td{padding:7px 0;border-bottom:1px solid #ddd;font-size:.92rem}
+  .rep-table td:last-child{text-align:right;font-family:monospace}
+  .rep-total{font-size:1.3rem;font-weight:700;display:flex;justify-content:space-between;padding-top:10px;border-top:2px solid #111}
+  .rep-note{font-size:.72rem;color:#666;margin-top:22px;line-height:1.5}
+}
+::selection{background:var(--accent);color:#fff}
+
+.donate-fab{
+  position:fixed; right:18px; bottom:calc(18px + env(safe-area-inset-bottom,0px));
+  background:var(--accent); color:#fff; border:0; border-radius:30px;
+  padding:12px 18px; font-size:.85rem; font-weight:600; cursor:pointer;
+  box-shadow:0 6px 18px rgba(0,0,0,.25); display:none; align-items:center; gap:8px; z-index:50;
+}
+.donate-fab.show{display:inline-flex}
+.donate-fab:active{transform:scale(.97)}
+@media print{.donate-fab{display:none !important}}
+
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
+.modal-bg.show{display:flex}
+.modal-box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;max-width:320px;width:100%;text-align:center}
+.modal-box img{width:100%;border-radius:8px;margin-bottom:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow"><div class="spool"></div><span style="font-family:monospace;font-size:.75rem;color:var(--ink-dim)">v1.1</span></div>
+    <h1>Calculadora de impresión 3D</h1>
+    <p>Calcula cuánto cobrar por tus piezas impresas y genera una cotización en PDF con los datos de tu emprendimiento.</p>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>Impresora</h2>
+        <select class="printer-select" id="printerSelect"></select>
+        <div class="mode-row">
+          <button type="button" class="mode-btn active" id="modeNormal">Consumo normal</button>
+          <button type="button" class="mode-btn" id="modeMax">Consumo máximo</button>
+        </div>
+        <div class="field-row single">
+          <div class="field">
+            <label>Consumo eléctrico (editable)</label>
+            <div class="inp"><input type="number" id="watts" min="0" value="150"><span>W</span></div>
+            <span class="hint">Usa el modo que corresponda a cómo imprimes normalmente, o ajústalo a mano.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Material</h2>
+        <div class="field-row">
+          <div class="field">
+            <label>Costo del filamento (por kg)</label>
+            <div class="inp"><span class="cursym">$</span><input type="number" id="filamentCost" min="0" value="12000"></div>
+          </div>
+          <div class="field">
+            <label>Peso de la pieza</label>
+            <div class="inp"><input type="number" id="weight" min="0" value="50"><span>g</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Tiempo y energía</h2>
+        <div class="field-row">
+          <div class="field">
+            <label>Tiempo de impresión</label>
+            <div class="inp"><input type="number" id="hours" min="0" value="3"><span>h</span></div>
+          </div>
+          <div class="field">
+            <label>&nbsp;</label>
+            <div class="inp"><input type="number" id="minutes" min="0" max="59" value="30"><span>min</span></div>
+          </div>
+        </div>
+        <div class="field-row single">
+          <div class="field">
+            <label>Costo de electricidad (kWh)</label>
+            <div class="inp"><span class="cursym">$</span><input type="number" id="kwhCost" min="0" value="160"></div>
+            <span class="hint">Revisa tu última cuenta de luz para este valor.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Desgaste y costos extra</h2>
+        <div class="field-row single">
+          <div class="field">
+            <label>Desgaste de la máquina (por hora)</label>
+            <div class="inp"><span class="cursym">$</span><input type="number" id="wearRate" min="0" value="400"></div>
+            <span class="hint">Estimación libre por hora de uso: mantenimiento, boquillas, piezas de repuesto.</span>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <span>Incluir mano de obra</span>
+          <label class="switch"><input type="checkbox" id="laborToggle"><span class="slider"></span></label>
+        </div>
+        <div class="extra-fields" id="laborFields">
+          <div class="field-row single">
+            <div class="field">
+              <label>Valor de tu hora de trabajo</label>
+              <div class="inp"><span class="cursym">$</span><input type="number" id="laborRate" min="0" value="3000"></div>
+            </div>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <span>Costos fijos adicionales</span>
+          <label class="switch"><input type="checkbox" id="extraToggle"><span class="slider"></span></label>
+        </div>
+        <div class="extra-fields" id="extraFieldsBlock">
+          <div class="field-row single">
+            <div class="field">
+              <label>Post-proceso, pegamento, empaque, etc.</label>
+              <div class="inp"><span class="cursym">$</span><input type="number" id="extraCost" min="0" value="0"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Ganancia e impuestos</h2>
+        <div class="field-row">
+          <div class="field">
+            <label>Cantidad de piezas</label>
+            <div class="inp"><input type="number" id="units" min="1" value="1"></div>
+          </div>
+          <div class="field">
+            <label>Margen de ganancia</label>
+            <div class="inp"><input type="number" id="margin" min="0" value="30"><span>%</span></div>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <span>Agregar impuesto</span>
+          <label class="switch"><input type="checkbox" id="taxToggle"><span class="slider"></span></label>
+        </div>
+        <div class="extra-fields" id="taxFields">
+          <div class="field-row single">
+            <div class="field">
+              <label>Porcentaje de impuesto (ej. IVA)</label>
+              <div class="inp"><input type="number" id="taxRate" min="0" value="19"><span>%</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Tu emprendimiento <small>— aparece en el PDF</small></h2>
+        <div class="logo-row">
+          <div class="logo-preview" id="logoPreview">Logo</div>
+          <label class="file-btn">Subir logo<input type="file" id="logoInput" accept="image/*"></label>
+          <button type="button" class="btn ghost" id="removeLogo" style="flex:none;padding:9px 12px">Quitar</button>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Nombre del emprendimiento</label>
+            <div class="inp"><input type="text" id="bizName" placeholder="Ej: Impresiones Valdés"></div>
+          </div>
+          <div class="field">
+            <label>Moneda</label>
+            <select class="cur-select" id="currencySelect"></select>
+          </div>
+        </div>
+        <div class="field-row single">
+          <div class="field">
+            <label>Contacto (teléfono, email o Instagram)</label>
+            <div class="inp"><input type="text" id="bizContact" placeholder="Ej: +56 9 1234 5678 · @impresiones3d"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Apoya este proyecto <small>— opcional</small></h2>
+        <div class="field-row single">
+          <div class="field">
+            <label>Link de donación (PayPal.me, Buy Me a Coffee, Mercado Pago, etc.)</label>
+            <div class="inp"><input type="text" id="donateLink" placeholder="https://paypal.me/tuusuario"></div>
+          </div>
+        </div>
+        <div class="logo-row">
+          <div class="logo-preview" id="qrPreview">QR</div>
+          <label class="file-btn">Subir QR<input type="file" id="qrInput" accept="image/*"></label>
+          <button type="button" class="btn ghost" id="removeQr" style="flex:none;padding:9px 12px">Quitar</button>
+        </div>
+        <span class="hint">Si agregas un link o un QR, aparecerá un botón flotante para que quien use la calculadora pueda invitarte un café.</span>
+      </div>
+
+      <div class="card">
+        <h2>Datos del documento <small>— opcional, para cotizaciones</small></h2>
+        <div class="field-row">
+          <div class="field">
+            <label>Cliente</label>
+            <div class="inp"><input type="text" id="clientName" placeholder="Nombre del cliente"></div>
+          </div>
+          <div class="field">
+            <label>N° de cotización</label>
+            <div class="inp"><input type="text" id="docNumber" placeholder="Ej: 001"></div>
+          </div>
+        </div>
+        <div class="field-row single">
+          <div class="field">
+            <label>Descripción de la pieza</label>
+            <div class="inp"><input type="text" id="pieceDesc" placeholder="Ej: Soporte para celular x2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="results">
+      <div class="card total-block">
+        <div class="label">Precio de venta sugerido</div>
+        <div class="value" id="totalPrice">$0</div>
+        <div class="per-unit" id="perUnitNote"></div>
+        <div class="breakdown" id="breakdown"></div>
+        <div class="btnrow">
+          <button class="btn primary" id="btnPdf">Guardar como PDF</button>
+        </div>
+        <div class="btnrow">
+          <button class="btn ghost" id="btnTheme">Cambiar tema</button>
+          <button class="btn ghost" id="btnReset">Restablecer</button>
+        </div>
+        <div class="footnote">Los watts por impresora son valores promedio referenciales — ajústalos si conoces el consumo real de tu equipo. El PDF generado es una cotización/recibo, no reemplaza un documento tributario emitido por tu servicio de impuestos.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="report">
+  <div class="rep-head">
+    <img id="repLogo" style="display:none">
+    <div>
+      <div class="rep-biz-name" id="repBizName">Cotización</div>
+      <div class="rep-biz-contact" id="repBizContact"></div>
+    </div>
+  </div>
+  <div class="rep-title">Cotización de impresión 3D</div>
+  <div class="rep-meta"><span id="repDoc"></span><span id="repDate"></span></div>
+  <div class="rep-client" id="repClient"></div>
+  <table class="rep-table" id="repTable"></table>
+  <div class="rep-total"><span>Total</span><span id="repTotal"></span></div>
+  <div class="rep-note">Documento generado con la calculadora de impresión 3D. Los valores de consumo eléctrico y desgaste son estimaciones, y este documento corresponde a una cotización/recibo, no a una factura o boleta electrónica oficial.</div>
+</div>
+
+<button class="donate-fab" id="donateFab">☕ Invítame un café</button>
+<div class="modal-bg" id="qrModal">
+  <div class="modal-box">
+    <img id="qrModalImg">
+    <div style="font-size:.85rem;color:var(--ink-dim);margin-bottom:14px">Escanea el código para hacer tu aporte 🙌</div>
+    <button class="btn ghost" id="closeQrModal" style="width:100%">Cerrar</button>
+  </div>
+</div>
+
+<script>
+const PRINTERS = [
+  {name:"Personalizada", normal:150, max:300},
+  {name:"Bambu Lab A1 mini", normal:130, max:200},
+  {name:"Bambu Lab A1", normal:200, max:300},
+  {name:"Bambu Lab P1S", normal:250, max:350},
+  {name:"Bambu Lab X1 Carbon", normal:270, max:400},
+  {name:"Bambu Lab H2D", normal:350, max:600},
+  {name:"Creality Ender 3 V2", normal:150, max:300},
+  {name:"Creality Ender 3 S1", normal:180, max:350},
+  {name:"Creality K1", normal:300, max:450},
+  {name:"Creality K1 Max", normal:400, max:600},
+  {name:"Anycubic Kobra 2", normal:180, max:250},
+  {name:"Prusa MK4", normal:180, max:220},
+  {name:"Elegoo Neptune 4", normal:150, max:220},
+];
+
+const CURRENCIES = [
+  {code:"CLP", symbol:"$", label:"CLP – Peso chileno ($)"},
+  {code:"USD", symbol:"US$", label:"USD – Dólar (US$)"},
+  {code:"EUR", symbol:"€", label:"EUR – Euro (€)"},
+  {code:"MXN", symbol:"MX$", label:"MXN – Peso mexicano (MX$)"},
+  {code:"ARS", symbol:"AR$", label:"ARS – Peso argentino (AR$)"},
+  {code:"COP", symbol:"COL$", label:"COP – Peso colombiano (COL$)"},
+  {code:"PEN", symbol:"S/", label:"PEN – Sol peruano (S/)"},
+  {code:"BOB", symbol:"Bs", label:"BOB – Boliviano (Bs)"},
+  {code:"UYU", symbol:"$U", label:"UYU – Peso uruguayo ($U)"},
+  {code:"BRL", symbol:"R$", label:"BRL – Real (R$)"},
+  {code:"GBP", symbol:"£", label:"GBP – Libra (£)"},
+];
+
+const $ = id => document.getElementById(id);
+const fmt = n => Math.round(n).toLocaleString('es-CL');
+let currentMode = 'normal';
+let currentSymbol = '$';
+let logoData = null;
+let qrData = null;
+
+function updateDonateFab(){
+  const link = txt('donateLink');
+  const fab = $('donateFab');
+  fab.classList.toggle('show', !!(link || qrData));
+}
+
+function showQrPreview(){
+  $('qrPreview').innerHTML = qrData ? `<img src="${qrData}">` : 'QR';
+}
+
+function populatePrinters(){
+  const sel = $('printerSelect');
+  PRINTERS.forEach((p,i)=>{
+    const o = document.createElement('option');
+    o.value=i; o.textContent=p.name;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', applyPrinterWatts);
+}
+
+function applyPrinterWatts(){
+  const p = PRINTERS[$('printerSelect').value];
+  $('watts').value = currentMode === 'normal' ? p.normal : p.max;
+  calc();
+}
+
+function setMode(mode){
+  currentMode = mode;
+  $('modeNormal').classList.toggle('active', mode==='normal');
+  $('modeMax').classList.toggle('active', mode==='max');
+  applyPrinterWatts();
+}
+
+function populateCurrencies(){
+  const sel = $('currencySelect');
+  CURRENCIES.forEach(c=>{
+    const o = document.createElement('option');
+    o.value = c.symbol; o.textContent = c.label; o.dataset.code = c.code;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', ()=>{
+    currentSymbol = sel.value;
+    document.querySelectorAll('.cursym').forEach(s=>s.textContent = currentSymbol);
+    calc();
+  });
+}
+
+function bindToggle(toggleId, blockId){
+  $(toggleId).addEventListener('change', e=>{
+    $(blockId).classList.toggle('show', e.target.checked);
+    calc();
+  });
+}
+
+function num(id){ return parseFloat($(id).value) || 0; }
+function txt(id){ return ($(id).value || '').trim(); }
+
+function calc(){
+  const watts = num('watts');
+  const kwhCost = num('kwhCost');
+  const hours = num('hours') + num('minutes')/60;
+  const filamentCost = num('filamentCost');
+  const weight = num('weight');
+  const wearRate = num('wearRate');
+  const units = Math.max(1, num('units') || 1);
+  const margin = num('margin');
+
+  const filament = (weight/1000) * filamentCost;
+  const electricity = (watts/1000) * hours * kwhCost;
+  const wear = wearRate * hours;
+
+  let labor = 0;
+  if($('laborToggle').checked) labor = num('laborRate') * hours;
+  let extra = 0;
+  if($('extraToggle').checked) extra = num('extraCost');
+
+  const subtotal = filament + electricity + wear + labor + extra;
+  const profit = subtotal * (margin/100);
+  const neto = subtotal + profit;
+
+  let tax = 0;
+  if($('taxToggle').checked) tax = neto * (num('taxRate')/100);
+
+  const total = neto + tax;
+  const perUnit = total / units;
+
+  $('totalPrice').textContent = currentSymbol + fmt(total);
+  $('perUnitNote').textContent = units > 1 ? `${currentSymbol}${fmt(perUnit)} por unidad (${units} piezas)` : 'Precio por pieza';
+
+  const rows = [
+    ['Filamento', filament],
+    ['Electricidad', electricity],
+    ['Desgaste de máquina', wear],
+  ];
+  if(labor>0) rows.push(['Mano de obra', labor]);
+  if(extra>0) rows.push(['Costos adicionales', extra]);
+
+  let html = rows.map(r=>`<div class="brow"><span>${r[0]}</span><b>${currentSymbol}${fmt(r[1])}</b></div>`).join('');
+  html += `<div class="brow sub"><span>Subtotal</span><b>${currentSymbol}${fmt(subtotal)}</b></div>`;
+  html += `<div class="brow profit"><span>Ganancia (${margin}%)</span><b>+${currentSymbol}${fmt(profit)}</b></div>`;
+  if(tax>0) html += `<div class="brow"><span>Impuesto (${num('taxRate')}%)</span><b>+${currentSymbol}${fmt(tax)}</b></div>`;
+  $('breakdown').innerHTML = html;
+
+  let repRows = rows.map(r=>`<tr><td>${r[0]}</td><td>${currentSymbol}${fmt(r[1])}</td></tr>`).join('');
+  repRows += `<tr><td>Subtotal</td><td>${currentSymbol}${fmt(subtotal)}</td></tr>`;
+  repRows += `<tr><td>Ganancia (${margin}%)</td><td>${currentSymbol}${fmt(profit)}</td></tr>`;
+  if(tax>0) repRows += `<tr><td>Impuesto (${num('taxRate')}%)</td><td>${currentSymbol}${fmt(tax)}</td></tr>`;
+  if(units>1) repRows += `<tr><td>Cantidad de piezas</td><td>${units}</td></tr><tr><td>Precio por unidad</td><td>${currentSymbol}${fmt(perUnit)}</td></tr>`;
+  $('repTable').innerHTML = repRows;
+  $('repTotal').textContent = currentSymbol + fmt(total);
+  $('repDate').textContent = new Date().toLocaleDateString('es-CL', {year:'numeric',month:'long',day:'numeric'});
+  $('repDoc').textContent = txt('docNumber') ? 'N° ' + txt('docNumber') : '';
+
+  const biz = txt('bizName');
+  $('repBizName').textContent = biz || 'Cotización';
+  $('repBizContact').textContent = txt('bizContact');
+
+  const client = txt('clientName');
+  const piece = txt('pieceDesc');
+  $('repClient').innerHTML = (client ? `Cliente: <strong>${client}</strong><br>` : '') + (piece ? `Pieza: ${piece}` : '');
+
+  saveState();
+}
+
+function saveState(){
+  try{
+    const ids = ['watts','filamentCost','weight','hours','minutes','kwhCost','wearRate','units','margin','laborRate','extraCost','taxRate','bizName','bizContact','clientName','docNumber','pieceDesc','donateLink'];
+    const state = {};
+    ids.forEach(id => state[id] = $(id).value);
+    state.laborToggle = $('laborToggle').checked;
+    state.extraToggle = $('extraToggle').checked;
+    state.taxToggle = $('taxToggle').checked;
+    state.theme = document.documentElement.getAttribute('data-theme') || '';
+    state.currentMode = currentMode;
+    state.currentSymbol = currentSymbol;
+    state.printerIndex = $('printerSelect').value;
+    if(logoData) state.logoData = logoData;
+    if(qrData) state.qrData = qrData;
+    localStorage.setItem('calc3d_state', JSON.stringify(state));
+  }catch(e){}
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem('calc3d_state');
+    if(!raw) return;
+    const state = JSON.parse(raw);
+    Object.keys(state).forEach(id=>{
+      const el = $(id);
+      if(!el) return;
+      if(el.type === 'checkbox') el.checked = state[id];
+      else el.value = state[id];
+    });
+    $('laborFields').classList.toggle('show', $('laborToggle').checked);
+    $('extraFieldsBlock').classList.toggle('show', $('extraToggle').checked);
+    $('taxFields').classList.toggle('show', $('taxToggle').checked);
+    if(state.theme) document.documentElement.setAttribute('data-theme', state.theme);
+    if(state.currentMode) currentMode = state.currentMode;
+    if(state.currentSymbol){ currentSymbol = state.currentSymbol; document.querySelectorAll('.cursym').forEach(s=>s.textContent=currentSymbol); }
+    if(state.printerIndex !== undefined) $('printerSelect').value = state.printerIndex;
+    $('modeNormal').classList.toggle('active', currentMode==='normal');
+    $('modeMax').classList.toggle('active', currentMode==='max');
+    document.querySelectorAll('#currencySelect option').forEach(o=>{ if(o.value === currentSymbol) o.selected = true; });
+    if(state.logoData){ logoData = state.logoData; showLogoPreview(); }
+    if(state.qrData){ qrData = state.qrData; showQrPreview(); }
+    updateDonateFab();
+  }catch(e){}
+}
+
+function showLogoPreview(){
+  $('logoPreview').innerHTML = logoData ? `<img src="${logoData}">` : 'Logo';
+  const repLogo = $('repLogo');
+  if(logoData){ repLogo.src = logoData; repLogo.style.display='block'; } else { repLogo.style.display='none'; }
+}
+
+function initEvents(){
+  document.querySelectorAll('input[type=number], input[type=text]').forEach(el=>el.addEventListener('input', calc));
+  bindToggle('laborToggle','laborFields');
+  bindToggle('extraToggle','extraFieldsBlock');
+  bindToggle('taxToggle','taxFields');
+
+  $('modeNormal').addEventListener('click', ()=>setMode('normal'));
+  $('modeMax').addEventListener('click', ()=>setMode('max'));
+
+  $('logoInput').addEventListener('change', e=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{ logoData = reader.result; showLogoPreview(); calc(); };
+    reader.readAsDataURL(file);
+  });
+  $('removeLogo').addEventListener('click', ()=>{ logoData = null; $('logoInput').value=''; showLogoPreview(); calc(); });
+
+  $('qrInput').addEventListener('change', e=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{ qrData = reader.result; showQrPreview(); updateDonateFab(); saveState(); };
+    reader.readAsDataURL(file);
+  });
+  $('removeQr').addEventListener('click', ()=>{ qrData = null; $('qrInput').value=''; showQrPreview(); updateDonateFab(); saveState(); });
+  $('donateLink').addEventListener('input', updateDonateFab);
+
+  $('donateFab').addEventListener('click', ()=>{
+    const link = txt('donateLink');
+    if(link){
+      window.open(link.startsWith('http') ? link : 'https://' + link, '_blank');
+    } else if(qrData){
+      $('qrModalImg').src = qrData;
+      $('qrModal').classList.add('show');
+    }
+  });
+  $('closeQrModal').addEventListener('click', ()=> $('qrModal').classList.remove('show'));
+  $('qrModal').addEventListener('click', e=>{ if(e.target.id === 'qrModal') $('qrModal').classList.remove('show'); });
+
+  $('btnPdf').addEventListener('click', ()=> window.print());
+
+  $('btnTheme').addEventListener('click', ()=>{
+    const cur = document.documentElement.getAttribute('data-theme');
+    document.documentElement.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+    saveState();
+  });
+
+  $('btnReset').addEventListener('click', ()=>{
+    try{ localStorage.removeItem('calc3d_state'); }catch(e){}
+    location.reload();
+  });
+}
+
+populatePrinters();
+populateCurrencies();
+loadState();
+initEvents();
+calc();
+</script>
+</body>
+</html>
